@@ -27,28 +27,24 @@ func GenerateAuthCode(db *gorm.DB) echo.HandlerFunc {
         isUsedUserId := new(DB.Auth)
         db.Where("user_id = ?", userid).First(&isUsedUserId)
 
-        if isUsedUserId.UserId == userid {
-            db.Save(&code)
-        } else {
-            tx := db.Begin()
-            defer func() {
-                if r := recover(); r != nil {
-                    tx.Rollback()
-                }
-            }()
-
-            if err := tx.Error; err != nil {
-                return err
-            }
-
-            if err := tx.Create(&code).Error; err != nil {
+        tx := db.Begin()
+        defer func() {
+            if r := recover(); r != nil {
                 tx.Rollback()
-                return err
             }
+        }()
 
-            if err := tx.Commit().Error; err != nil {
-                return err
-            }
+        if err := tx.Error; err != nil {
+            return err
+        }
+
+        if err := tx.Save(&code).Error; err != nil {
+            tx.Rollback()
+            return err
+        }
+
+        if err := tx.Commit().Error; err != nil {
+            return err
         }
 
         return c.HTML(http.StatusOK, code.Code)
@@ -119,7 +115,26 @@ func Login(db *gorm.DB, isLoginDB *gorm.DB) echo.HandlerFunc {
             isLoginDB.Where("user_id = ?", formData.UserId).First(&login)
             login.UserId = formData.UserId
             login.IsLogin = true
-            isLoginDB.Save(&login)
+
+            tx := isLoginDB.Begin()
+            defer func() {
+                if r := recover(); r != nil {
+                    tx.Rollback()
+                }
+            }()
+
+            if err := tx.Error; err != nil {
+                return err
+            }
+
+            if err := tx.Save(&login).Error; err != nil {
+                tx.Rollback()
+                return err
+            }
+
+            if err := tx.Commit().Error; err != nil {
+                return err
+            }
 
             return c.NoContent(http.StatusOK)
         } else {
