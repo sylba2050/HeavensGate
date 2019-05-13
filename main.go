@@ -19,6 +19,7 @@ func main() {
     defer db.Close()
 
     db.AutoMigrate(&DB.Auth{})
+    db.AutoMigrate(&DB.AuthCode{})
 
     isLoginDB := connectDB("login.sqlite3")
     defer isLoginDB.Close()
