@@ -28,6 +28,7 @@ func main() {
 
     e := echo.New()
 
+    e.GET("/code/:userid", user.GenerateAuthCode(db))
     e.POST("/login", user.Login(db))
     e.POST("/create", user.Create(db))
 
