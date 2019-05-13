@@ -97,7 +97,7 @@ func Create(db *gorm.DB) echo.HandlerFunc {
     }
 }
 
-func Login(db *gorm.DB) echo.HandlerFunc {
+func Login(db *gorm.DB, isLoginDB *gorm.DB) echo.HandlerFunc {
     return func(c echo.Context) error {
         formData := new(DB.Auth)
         if err := c.Bind(formData); err != nil {
@@ -115,6 +115,12 @@ func Login(db *gorm.DB) echo.HandlerFunc {
         auth := sha256.Sha256Sum([]byte(user.UserId + user.PW + code.Code))
 
         if formData.PW == auth {
+            login := new(DB.LoginStatus)
+            isLoginDB.Where("user_id = ?", formData.UserId).First(&login)
+            login.UserId = formData.UserId
+            login.IsLogin = true
+            isLoginDB.Save(&login)
+
             return c.NoContent(http.StatusOK)
         } else {
             return c.NoContent(http.StatusUnauthorized)
