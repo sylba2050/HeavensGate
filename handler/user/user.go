@@ -15,6 +15,37 @@ import (
     _ "github.com/mattn/go-sqlite3"
 )
 
+func transaction(db *gorm.DB, data interface{}, action string) error {
+    tx := db.Begin()
+    defer func() {
+        if r := recover(); r != nil {
+            tx.Rollback()
+        }
+    }()
+
+    if err := tx.Error; err != nil {
+        return err
+    }
+
+    if action == "save" {
+        if err := tx.Save(data).Error; err != nil {
+            tx.Rollback()
+            return err
+        }
+    } else if action == "create" {
+        if err := tx.Create(data).Error; err != nil {
+            tx.Rollback()
+            return err
+        }
+    }
+
+    if err := tx.Commit().Error; err != nil {
+        return err
+    }
+
+    return nil
+}
+
 func GenerateAuthCode(db *gorm.DB) echo.HandlerFunc {
     return func(c echo.Context) error {
         userid := c.Param("userid")
@@ -27,25 +58,7 @@ func GenerateAuthCode(db *gorm.DB) echo.HandlerFunc {
         isUsedUserId := new(DB.Auth)
         db.Where("user_id = ?", userid).First(&isUsedUserId)
 
-        tx := db.Begin()
-        defer func() {
-            if r := recover(); r != nil {
-                tx.Rollback()
-            }
-        }()
-
-        if err := tx.Error; err != nil {
-            return err
-        }
-
-        if err := tx.Save(&code).Error; err != nil {
-            tx.Rollback()
-            return err
-        }
-
-        if err := tx.Commit().Error; err != nil {
-            return err
-        }
+        transaction(db, code, "save")
 
         return c.HTML(http.StatusOK, code.Code)
     }
@@ -69,27 +82,9 @@ func Create(db *gorm.DB) echo.HandlerFunc {
             return c.NoContent(http.StatusBadRequest)
         }
 
-        tx := db.Begin()
-        defer func() {
-            if r := recover(); r != nil {
-                tx.Rollback()
-            }
-        }()
+        transaction(db, user, "create")
 
-        if err := tx.Error; err != nil {
-            return err
-        }
-
-        if err := tx.Create(&user).Error; err != nil {
-            tx.Rollback()
-            return err
-        }
-
-        if err := tx.Commit().Error; err != nil {
-            return err
-        } else {
-            return c.NoContent(http.StatusOK)
-        }
+        return c.NoContent(http.StatusOK)
     }
 }
 
@@ -116,25 +111,7 @@ func Login(db *gorm.DB, isLoginDB *gorm.DB) echo.HandlerFunc {
             login.UserId = formData.UserId
             login.IsLogin = true
 
-            tx := isLoginDB.Begin()
-            defer func() {
-                if r := recover(); r != nil {
-                    tx.Rollback()
-                }
-            }()
-
-            if err := tx.Error; err != nil {
-                return err
-            }
-
-            if err := tx.Save(&login).Error; err != nil {
-                tx.Rollback()
-                return err
-            }
-
-            if err := tx.Commit().Error; err != nil {
-                return err
-            }
+            transaction(isLoginDB, login, "save")
 
             return c.NoContent(http.StatusOK)
         } else {
