@@ -3,6 +3,7 @@ package user
 import (
     "../../struct/DB"
     "../../utils/sha256"
+    "../../utils/randomString"
 
     "os"
     "fmt"
@@ -52,11 +53,9 @@ func GenerateAuthCode(db *gorm.DB) echo.HandlerFunc {
 
         code := new(DB.AuthCode)
         code.UserId = userid
-        //TODO ランダム生成
-        code.Code = "code"
 
-        isUsedUserId := new(DB.Auth)
-        db.Where("user_id = ?", userid).First(&isUsedUserId)
+        db.Where("user_id = ?", userid).First(&code)
+        code.Code = randomString.RandString(8)
 
         transaction(db, code, "save")
 
